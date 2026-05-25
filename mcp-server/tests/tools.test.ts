@@ -26,6 +26,9 @@ describe("tools", () => {
     const names = createTools(client).map((t) => t.name).sort();
     expect(names).toContain("ads_overview");
     expect(names).toContain("warehouse_alerts");
+    expect(names).toContain("warehouse_top_skus");
+    expect(names).toContain("warehouse_transfers");
+    expect(names).toContain("warehouse_sku_trends");
     expect(names).toContain("adventory_capabilities");
     expect(names.some((n) => /dispatch|approve|truck|create|update|delete/.test(n))).toBe(false);
   });
@@ -120,6 +123,91 @@ describe("tools", () => {
     const { t } = tool("warehouse_sales_anomalies");
     await expect(t.handler({ metric: "profit" })).rejects.toThrow(/metric/i);
     await expect(t.handler({ group_by: "region" })).rejects.toThrow(/group_by/i);
+  });
+
+  it("warehouse_top_skus defaults date to yesterday and core params", async () => {
+    const { t, calls } = tool("warehouse_top_skus");
+    await t.handler({});
+    expect(calls[0][0]).toBe("/api/warehouse/top-skus");
+    const q = calls[0][1] as Record<string, unknown>;
+    expect(q.date as string).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(q.limit).toBe(10);
+    expect(q.order_basis).toBe("all_non_cancelled");
+    expect(q.line_filter).toBe("paid_only");
+    expect(q.sort_by).toBe("units");
+  });
+
+  it("warehouse_top_skus rejects date together with from/to", async () => {
+    const { t } = tool("warehouse_top_skus");
+    await expect(t.handler({
+      date: "2026-05-24", from: "2026-05-01", to: "2026-05-02",
+    })).rejects.toThrow(/date/i);
+  });
+
+  it("warehouse_top_skus forwards a range and filters", async () => {
+    const { t, calls } = tool("warehouse_top_skus");
+    await t.handler({
+      from: "2026-05-01", to: "2026-05-07", limit: 5,
+      branch: "907851", sale_channel: "942558",
+      order_basis: "completed", line_filter: "all_positive_quantity",
+      sort_by: "line_revenue",
+    });
+    expect(calls[0][1]).toEqual({
+      from: "2026-05-01", to: "2026-05-07", limit: 5,
+      branch: "907851", sale_channel: "942558",
+      order_basis: "completed", line_filter: "all_positive_quantity",
+      sort_by: "line_revenue",
+    });
+  });
+
+  it("warehouse_top_skus rejects invalid enums and limit", async () => {
+    const { t } = tool("warehouse_top_skus");
+    await expect(t.handler({ order_basis: "weird" })).rejects.toThrow(/order_basis/i);
+    await expect(t.handler({ line_filter: "weird" })).rejects.toThrow(/line_filter/i);
+    await expect(t.handler({ sort_by: "weird" })).rejects.toThrow(/sort_by/i);
+    await expect(t.handler({ limit: 0 })).rejects.toThrow(/limit/i);
+  });
+
+  it("warehouse_transfers defaults status and forwards filters", async () => {
+    const { t, calls } = tool("warehouse_transfers");
+    await t.handler({});
+    expect(calls[0][0]).toBe("/api/warehouse/transfers");
+    expect((calls[0][1] as Record<string, unknown>).status).toBe("in_transit_or_stale");
+
+    const filtered = tool("warehouse_transfers");
+    await filtered.t.handler({
+      status: "all", from_branch: "src", to_branch: "hn",
+      sla_override_days: 2, include_lines: true, as_of: "2026-05-24",
+    });
+    expect(filtered.calls[0][1]).toEqual({
+      status: "all", from_branch: "src", to_branch: "hn",
+      sla_override_days: 2, include_lines: true, as_of: "2026-05-24",
+    });
+  });
+
+  it("warehouse_transfers rejects invalid status", async () => {
+    const { t } = tool("warehouse_transfers");
+    await expect(t.handler({ status: "weird" })).rejects.toThrow(/status/i);
+  });
+
+  it("warehouse_sku_trends defaults and forwards params", async () => {
+    const { t, calls } = tool("warehouse_sku_trends");
+    await t.handler({});
+    expect(calls[0][0]).toBe("/api/warehouse/sku-trends");
+    const q = calls[0][1] as Record<string, unknown>;
+    expect(q.date as string).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(q.window_days).toBe(14);
+    expect(q.metric).toBe("units");
+    expect(q.direction).toBe("both");
+  });
+
+  it("warehouse_sku_trends rejects out-of-range window_days and bad enums", async () => {
+    const { t } = tool("warehouse_sku_trends");
+    await expect(t.handler({ window_days: 2 })).rejects.toThrow(/window_days/i);
+    await expect(t.handler({ window_days: 91 })).rejects.toThrow(/window_days/i);
+    await expect(t.handler({ metric: "profit" })).rejects.toThrow(/metric/i);
+    await expect(t.handler({ direction: "sideways" })).rejects.toThrow(/direction/i);
+    await expect(t.handler({ limit: 0 })).rejects.toThrow(/limit/i);
   });
 
   it("inventory tools hit the correct /api/warehouse paths", async () => {

@@ -1,5 +1,5 @@
 import type { AdventoryClient } from "./client.js";
-import { defaultRange, today } from "./dates.js";
+import { defaultRange, today, yesterday } from "./dates.js";
 import { AdventoryError } from "./errors.js";
 import type { Query, ToolDefinition } from "./types.js";
 
@@ -213,6 +213,217 @@ export function createTools(client: AdventoryClient): ToolDefinition[] {
         if (args.include_zero_today !== undefined) query.include_zero_today = args.include_zero_today;
 
         return client.get("/api/warehouse/sales-anomalies", query);
+      }
+    },
+    {
+      name: "warehouse_top_skus",
+      description:
+        "Top SKU bán chạy theo số lượng trong một ngày/khoảng ngày, kèm kho bán chính, kênh bán chính và cặp kho × kênh chính. Mặc định hôm qua (giờ Việt Nam) để tránh số liệu partial trong ngày.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Ngày YYYY-MM-DD. Mặc định hôm qua. Không dùng cùng from/to." },
+          from: { type: "string", description: "Ngày bắt đầu YYYY-MM-DD (đi kèm to)." },
+          to: { type: "string", description: "Ngày kết thúc YYYY-MM-DD, inclusive (đi kèm from)." },
+          limit: { type: "integer", minimum: 1, maximum: 100, description: "Số SKU trả về. Mặc định 10." },
+          branch: { type: "string", description: "Lọc một kho theo mã chi nhánh (tùy chọn)." },
+          sale_channel: { type: "string", description: "Lọc một kênh bán theo mã kênh (tùy chọn)." },
+          order_basis: { type: "string", enum: ["all_non_cancelled", "completed"], description: "Tập đơn. Mặc định all_non_cancelled." },
+          line_filter: { type: "string", enum: ["paid_only", "all_positive_quantity"], description: "paid_only loại dòng 0đ. Mặc định paid_only." },
+          sort_by: { type: "string", enum: ["units", "line_revenue", "orders"], description: "Metric xếp hạng. Mặc định units." }
+        },
+        additionalProperties: false
+      },
+      async handler(args: {
+        date?: string; from?: string; to?: string; limit?: number;
+        branch?: string; sale_channel?: string;
+        order_basis?: string; line_filter?: string; sort_by?: string;
+      }) {
+        const hasRange = args.from !== undefined || args.to !== undefined;
+        if (args.date !== undefined && hasRange) {
+          throw new AdventoryError("Chỉ truyền `date` hoặc cặp `from`+`to`, không truyền đồng thời.", {
+            code: "invalid_param",
+            param: "date"
+          });
+        }
+        if ((args.from === undefined) !== (args.to === undefined)) {
+          throw new AdventoryError("`from` và `to` phải đi cùng nhau.", {
+            code: "invalid_param",
+            param: "from"
+          });
+        }
+
+        const query: Query = {};
+        if (hasRange) {
+          query.from = args.from;
+          query.to = args.to;
+        } else {
+          query.date = args.date ?? yesterday();
+        }
+
+        const limit = args.limit ?? 10;
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+          throw new AdventoryError("limit phải là số nguyên từ 1 đến 100.", {
+            code: "invalid_param",
+            param: "limit"
+          });
+        }
+        query.limit = limit;
+
+        const orderBasis = args.order_basis ?? "all_non_cancelled";
+        if (!["all_non_cancelled", "completed"].includes(orderBasis)) {
+          throw new AdventoryError("order_basis không hợp lệ (all_non_cancelled | completed).", {
+            code: "invalid_param",
+            param: "order_basis"
+          });
+        }
+        query.order_basis = orderBasis;
+
+        const lineFilter = args.line_filter ?? "paid_only";
+        if (!["paid_only", "all_positive_quantity"].includes(lineFilter)) {
+          throw new AdventoryError("line_filter không hợp lệ (paid_only | all_positive_quantity).", {
+            code: "invalid_param",
+            param: "line_filter"
+          });
+        }
+        query.line_filter = lineFilter;
+
+        const sortBy = args.sort_by ?? "units";
+        if (!["units", "line_revenue", "orders"].includes(sortBy)) {
+          throw new AdventoryError("sort_by không hợp lệ (units | line_revenue | orders).", {
+            code: "invalid_param",
+            param: "sort_by"
+          });
+        }
+        query.sort_by = sortBy;
+
+        if (args.branch) query.branch = args.branch;
+        if (args.sale_channel) query.sale_channel = args.sale_channel;
+        return client.get("/api/warehouse/top-skus", query);
+      }
+    },
+    {
+      name: "warehouse_transfers",
+      description:
+        "Danh sách phiếu chuyển kho kèm trạng thái SLA: in_transit (đang đi, trong lead time), stale_in_transit (quá SLA nhưng vẫn được cộng vào effective stock), received, no_dispatch_date. Mặc định chỉ trả phiếu đang đi.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["in_transit_or_stale", "in_transit", "stale_in_transit", "received", "no_dispatch_date", "all"], description: "Lọc theo trạng thái SLA. Mặc định in_transit_or_stale." },
+          from_branch: { type: "string", description: "Lọc kho nguồn theo mã chi nhánh (tùy chọn)." },
+          to_branch: { type: "string", description: "Lọc kho nhận theo mã chi nhánh (tùy chọn)." },
+          sla_override_days: { type: "number", description: "Ghi đè ngưỡng SLA thay cho lead_time_days của kho nhận." },
+          include_lines: { type: "boolean", description: "Kèm chi tiết dòng SKU của phiếu. Mặc định false." },
+          as_of: { type: "string", description: "Ngày tham chiếu YYYY-MM-DD để tính tuổi phiếu. Mặc định hôm nay." }
+        },
+        additionalProperties: false
+      },
+      async handler(args: {
+        status?: string; from_branch?: string; to_branch?: string;
+        sla_override_days?: number; include_lines?: boolean; as_of?: string;
+      }) {
+        const status = args.status ?? "in_transit_or_stale";
+        if (!["in_transit_or_stale", "in_transit", "stale_in_transit", "received", "no_dispatch_date", "all"].includes(status)) {
+          throw new AdventoryError("status không hợp lệ.", {
+            code: "invalid_param",
+            param: "status"
+          });
+        }
+
+        const query: Query = { status };
+        if (args.from_branch) query.from_branch = args.from_branch;
+        if (args.to_branch) query.to_branch = args.to_branch;
+        if (args.sla_override_days !== undefined) query.sla_override_days = args.sla_override_days;
+        if (args.include_lines !== undefined) query.include_lines = args.include_lines;
+        if (args.as_of) query.as_of = args.as_of;
+        return client.get("/api/warehouse/transfers", query);
+      }
+    },
+    {
+      name: "warehouse_sku_trends",
+      description:
+        "SKU tăng/giảm mạnh nhất giữa N ngày gần nhất và N ngày liền trước (mặc định 14 ngày, anchor = hôm qua). Trả current/prior, % thay đổi, hướng và xếp hạng gainers/losers.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          date: { type: "string", description: "Ngày anchor YYYY-MM-DD. Mặc định hôm qua." },
+          window_days: { type: "integer", minimum: 3, maximum: 90, description: "Độ dài mỗi kỳ. Mặc định 14." },
+          metric: { type: "string", enum: ["units", "line_revenue", "orders"], description: "Metric xếp hạng. Mặc định units." },
+          direction: { type: "string", enum: ["gainers", "losers", "both"], description: "Chiều cần lấy. Mặc định both." },
+          limit: { type: "integer", minimum: 1, maximum: 100, description: "Số SKU mỗi chiều. Mặc định 10." },
+          branch: { type: "string", description: "Lọc một kho (tùy chọn)." },
+          sale_channel: { type: "string", description: "Lọc một kênh bán (tùy chọn)." },
+          order_basis: { type: "string", enum: ["all_non_cancelled", "completed"], description: "Tập đơn. Mặc định all_non_cancelled." },
+          line_filter: { type: "string", enum: ["paid_only", "all_positive_quantity"], description: "Lọc dòng. Mặc định paid_only." },
+          min_prior: { type: "number", description: "Ngưỡng tối thiểu của metric đã chọn ở kỳ trước để loại nhiễu khi xếp losers. Mặc định 5." }
+        },
+        additionalProperties: false
+      },
+      async handler(args: {
+        date?: string; window_days?: number; metric?: string; direction?: string;
+        limit?: number; branch?: string; sale_channel?: string;
+        order_basis?: string; line_filter?: string; min_prior?: number;
+      }) {
+        const query: Query = { date: args.date ?? yesterday() };
+
+        const windowDays = args.window_days ?? 14;
+        if (!Number.isInteger(windowDays) || windowDays < 3 || windowDays > 90) {
+          throw new AdventoryError("window_days phải là số nguyên từ 3 đến 90.", {
+            code: "invalid_param",
+            param: "window_days"
+          });
+        }
+        query.window_days = windowDays;
+
+        const metric = args.metric ?? "units";
+        if (!["units", "line_revenue", "orders"].includes(metric)) {
+          throw new AdventoryError("metric không hợp lệ (units | line_revenue | orders).", {
+            code: "invalid_param",
+            param: "metric"
+          });
+        }
+        query.metric = metric;
+
+        const direction = args.direction ?? "both";
+        if (!["gainers", "losers", "both"].includes(direction)) {
+          throw new AdventoryError("direction không hợp lệ (gainers | losers | both).", {
+            code: "invalid_param",
+            param: "direction"
+          });
+        }
+        query.direction = direction;
+
+        const limit = args.limit ?? 10;
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+          throw new AdventoryError("limit phải là số nguyên từ 1 đến 100.", {
+            code: "invalid_param",
+            param: "limit"
+          });
+        }
+        query.limit = limit;
+
+        const orderBasis = args.order_basis ?? "all_non_cancelled";
+        if (!["all_non_cancelled", "completed"].includes(orderBasis)) {
+          throw new AdventoryError("order_basis không hợp lệ (all_non_cancelled | completed).", {
+            code: "invalid_param",
+            param: "order_basis"
+          });
+        }
+        query.order_basis = orderBasis;
+
+        const lineFilter = args.line_filter ?? "paid_only";
+        if (!["paid_only", "all_positive_quantity"].includes(lineFilter)) {
+          throw new AdventoryError("line_filter không hợp lệ (paid_only | all_positive_quantity).", {
+            code: "invalid_param",
+            param: "line_filter"
+          });
+        }
+        query.line_filter = lineFilter;
+
+        if (args.branch) query.branch = args.branch;
+        if (args.sale_channel) query.sale_channel = args.sale_channel;
+        if (args.min_prior !== undefined) query.min_prior = args.min_prior;
+        return client.get("/api/warehouse/sku-trends", query);
       }
     },
     {

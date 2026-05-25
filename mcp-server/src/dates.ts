@@ -8,3 +8,8 @@ export function defaultRange(now: Date = new Date()): { from: string; to: string
 export function today(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
+
+export function yesterday(now: Date = new Date()): string {
+  const d = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  return d.toISOString().slice(0, 10);
+}

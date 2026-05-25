@@ -34,6 +34,9 @@ Không đoán mã chi nhánh hay plan ID. Nếu người dùng cung cấp tên c
 | `warehouse_daily_sales` | Doanh số theo kênh trong một ngày (chỉ số đơn + số sản phẩm) | `date?` (YYYY-MM-DD — mặc định hôm nay) |
 | `warehouse_daily_sales_by_channel` | Báo cáo ngày theo **kho × kênh** kèm **doanh thu gross/net**, trả hàng, tên kênh thật, `insights`, `source.data_freshness`/`partial` — dùng cho báo cáo CEO | `date?` (mặc định hôm nay), `branch?` (lọc một kho), `include_returns?` (mặc định true), `include_zero_sales_branches?` (mặc định false) |
 | `warehouse_sales_anomalies` | So sánh hôm nay với trung bình N ngày (mặc định 14) để tìm kho/kênh **tăng/giảm bất thường** — kèm % thay đổi, hướng, mức độ | `date?`, `lookback_days?` (3-90, mặc định 14), `metric?` (orders\|units\|gross_revenue\|net_revenue), `group_by?` (branch\|branch_channel), `branch?`, `min_baseline_orders?`, `change_threshold_pct?`, `include_zero_today?` |
+| `warehouse_top_skus` | Top SKU bán chạy theo số lượng, kèm kho chính / kênh chính / kho × kênh chính | `date?` (mặc định hôm qua) hoặc `from`+`to`, `limit?` (1-100, mặc định 10), `branch?`, `sale_channel?`, `order_basis?` (all_non_cancelled\|completed), `line_filter?` (paid_only\|all_positive_quantity), `sort_by?` (units\|line_revenue\|orders) |
+| `warehouse_transfers` | Phiếu chuyển kho + trạng thái SLA (in_transit / stale_in_transit / received / no_dispatch_date) theo lead_time_days kho nhận | `status?` (mặc định in_transit_or_stale), `from_branch?`, `to_branch?`, `sla_override_days?`, `include_lines?`, `as_of?` |
+| `warehouse_sku_trends` | SKU tăng/giảm mạnh giữa N ngày gần nhất và N ngày trước đó | `date?` (anchor, mặc định hôm qua), `window_days?` (3-90, mặc định 14), `metric?` (units\|line_revenue\|orders), `direction?` (gainers\|losers\|both), `limit?`, `branch?`, `sale_channel?`, `order_basis?`, `line_filter?`, `min_prior?` (ngưỡng theo metric đã chọn) |
 | `reorder_suggestions` | Đề xuất nhập hàng/điều chuyển cho một chi nhánh | `branch` (**bắt buộc** — mã chi nhánh từ `warehouse_branches`) |
 | `production_plan` | Kế hoạch sản xuất hiện tại cho một chi nhánh nhà máy | `branch` (**bắt buộc** — mã chi nhánh từ `warehouse_branches`) |
 | `production_materials` | Thiếu hụt nguyên liệu BOM cho một kế hoạch sản xuất | `plan` (**bắt buộc** — UUID từ `production_plan`) |
@@ -107,6 +110,32 @@ Trigger: *"Kho nào tăng/giảm bất thường?"*, *"So với 2 tuần trướ
 4. Nếu `source.partial_today=true`, nói rõ hôm nay chưa hết ngày nên số liệu có thể thấp hơn thực tế (xem `source.elapsed_day_ratio`).
 5. Kho `today=0` nhưng baseline cao → cảnh báo critical, gợi ý kiểm tra đồng bộ kênh bán (Shopee/TikTok/KiotViet).
 
+### Top SKU Bán Chạy
+
+Trigger: *"Top 10 SKU bán chạy hôm qua là gì, nằm ở kho nào, kênh nào kéo chính?"*
+
+1. Gọi `warehouse_top_skus` (mặc định hôm qua, xếp theo số lượng). Cần khoảng ngày thì dùng `from`+`to`.
+2. Đọc `rows[].main_branch`, `main_channel`, `main_branch_channel` và `unit_share_pct` để nói SKU chủ yếu bán ở đâu/kênh nào.
+3. Muốn xét hàng đi ra kho gồm cả quà tặng/0đ → `line_filter=all_positive_quantity`; đối soát kế toán → `order_basis=completed`.
+
+### Phiếu Chuyển Kho Và SLA
+
+Trigger: *"Transfer nào quá SLA chưa nhận nhưng đang tính vào effective stock?"*, *"Hàng đang về kho nào?"*
+
+1. Gọi `warehouse_transfers` (mặc định chỉ phiếu đang đi). `stale_in_transit` + `counts_toward_effective_stock=true` là phiếu quá hạn vẫn được cộng — cần đối soát.
+2. Trước khi đề xuất nhập thêm/sản xuất một SKU, kiểm tra phiếu đang về cùng kho.
+3. `status=received` cho biết phiếu đã nhận → cảnh báo thiếu tương ứng có thể tự hết.
+4. Kho nhận chưa cấu hình `lead_time_days` → hệ thống dùng fallback và ghi `source.warnings`.
+
+### SKU Tăng/Giảm 2 Tuần
+
+Trigger: *"Top SKU tăng trưởng / tụt mạnh 2 tuần qua?"*
+
+1. Gọi `warehouse_sku_trends` (mặc định 14 ngày vs 14 ngày liền trước).
+2. `gainers`/`losers` kèm `growth_pct` (null = SKU mới) và `change`.
+3. `min_prior` là ngưỡng theo metric đã chọn: nếu `metric=line_revenue` thì ngưỡng là VND/cents theo dữ liệu backend, không phải số đơn/sản phẩm.
+4. Suy luận nguyên nhân SKU tụt bằng cách đối chiếu `warehouse_alerts` (hết hàng) và `ads_insights` (quảng cáo) — endpoint không tự gán nguyên nhân.
+
 ### Tra Cứu Đơn Hàng
 
 Trigger: *"Đơn hàng hôm nay?"*, *"Đơn nền tảng Shopee tuần này?"*, *"Đơn hàng trạng thái nào đang chờ xử lý?"*
@@ -136,6 +165,9 @@ Trigger: *"Đơn hàng hôm nay?"*, *"Đơn nền tảng Shopee tuần này?"*, 
 Không giống KiotViet raw API, Adventory trả về kết quả đã được engine backend tính toán:
 
 - `warehouse_alerts` — cảnh báo đã được phân loại dựa trên velocity 2 tuần và ngưỡng mỗi chi nhánh.
+- `warehouse_top_skus` — SKU bán chạy đã được backend gom theo đơn hợp lệ, kho và kênh.
+- `warehouse_transfers` — phiếu chuyển kho đã được gắn trạng thái SLA theo lead time kho nhận.
+- `warehouse_sku_trends` — SKU tăng/giảm đã được backend so sánh kỳ hiện tại với kỳ liền trước.
 - `reorder_suggestions` — đề xuất đã tính toán bao gồm truck-fill greedy top-up.
 - `production_plan` — kế hoạch đã được engine sản xuất tính từ tồn kho mạng lưới.
 - `production_materials` — shortfall BOM đã được tính từ định mức và tồn hiện tại.

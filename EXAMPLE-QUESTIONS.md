@@ -90,10 +90,22 @@ it never changes data, sends messages, or places orders.
 20. **EN:** What stock problems does the main branch have right now?
     **VI:** Chi nhánh chính đang gặp những vấn đề tồn kho nào?
 
+20b. **EN:** What were the top 10 best-selling SKUs yesterday, in which warehouse, and which channel drove them?
+     **VI:** Top 10 SKU bán chạy hôm qua là gì, nằm ở kho nào, kênh nào kéo chính?
+     *(→ `warehouse_top_skus`)*
+
+20c. **EN:** Which transfers are past SLA but still counted into effective stock?
+     **VI:** Transfer nào quá SLA chưa nhận nhưng đang được tính vào effective stock?
+     *(→ `warehouse_transfers`, status `stale_in_transit`)*
+
+20d. **EN:** Which SKUs grew or dropped the most over the last two weeks?
+     **VI:** SKU nào tăng trưởng / tụt mạnh nhất 2 tuần qua?
+     *(→ `warehouse_sku_trends`)*
+
 ---
 
 ## Reordering & purchasing
-*(tools: `warehouse_branches`, `reorder_suggestions`)*
+*(tools: `warehouse_branches`, `reorder_suggestions`, `warehouse_transfers`)*
 
 21. **EN:** What should I reorder for my main branch this week?
     **VI:** Tuần này chi nhánh chính nên nhập lại những gì?
