@@ -1,6 +1,6 @@
 # Adventory MCP — API Reference
 
-All 14 tools send **GET** requests to the Adventory backend. Authentication uses the header:
+All 16 tools send **GET** requests to the Adventory backend. Authentication uses the header:
 
 ```
 Authorization: Bearer adv_live_...
@@ -24,6 +24,8 @@ Default base URL: `https://dashboard-api.clipoox.com` (override with `ADVENTORY_
 | `warehouse_branches` | `GET /api/warehouse/branches` | none | Branch/warehouse list with codes, names, and per-branch configuration |
 | `warehouse_alerts` | `GET /api/warehouse/alerts` | `branch` (optional, branch code), `status` (optional, alert status filter) | Pre-computed stock alerts classified by type (out-of-stock, low-stock, overstock, etc.) |
 | `warehouse_daily_sales` | `GET /api/warehouse/daily-sales` | `date` (optional, YYYY-MM-DD — defaults to today) | Sales by channel for the specified day |
+| `warehouse_daily_sales_by_channel` | `GET /api/warehouse/daily-sales-by-channel` | `date` (optional), `branch` (optional), `include_returns` (optional), `include_zero_sales_branches` (optional) | Warehouse x channel sales with gross/net revenue, returns, insights, and data freshness |
+| `warehouse_sales_anomalies` | `GET /api/warehouse/sales-anomalies` | `date` (optional), `lookback_days` (3-90), `metric` (`orders`\|`units`\|`gross_revenue`\|`net_revenue`), `group_by` (`branch`\|`branch_channel`), `branch` (optional), thresholds | Branch or branch x channel sales anomalies versus trailing daily average |
 | `reorder_suggestions` | `GET /api/warehouse/reorder` | `branch` (**required**, branch code from `warehouse_branches`) | Pre-computed reorder and transfer suggestions for the specified branch |
 | `production_plan` | `GET /api/warehouse/production/plan` | `branch` (**required**, branch code from `warehouse_branches`) | Current production plan lines for the specified factory branch, with status and quantities |
 | `production_materials` | `GET /api/warehouse/production/materials` | `plan` (**required**, UUID from `production_plan`) | BOM-derived material shortfalls for the specified production plan |
@@ -39,6 +41,7 @@ Default base URL: `https://dashboard-api.clipoox.com` (override with `ADVENTORY_
 |---|---|---|
 | `from` / `to` (date range) | Last 7 days | Computed at request time by the MCP server (`defaultRange()` in `dates.ts`) |
 | `date` (daily sales) | Today | Computed at request time by the MCP server (`today()` in `dates.ts`) |
+| `lookback_days` (sales anomalies) | `14` | Baseline excludes the report date; allowed range is 3-90 days |
 | `page` | `1` | For `analytics_orders` only |
 | `page_size` | `50` | For `analytics_orders` only; maximum 100 |
 

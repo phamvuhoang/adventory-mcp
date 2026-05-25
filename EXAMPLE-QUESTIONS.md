@@ -124,10 +124,18 @@ it never changes data, sends messages, or places orders.
 ---
 
 ## Sales, orders & revenue
-*(tools: `warehouse_daily_sales`, `analytics_summary`, `analytics_by_platform`, `analytics_orders`)*
+*(tools: `warehouse_daily_sales_by_channel`, `warehouse_sales_anomalies`, `warehouse_daily_sales`, `analytics_summary`, `analytics_by_platform`, `analytics_orders`)*
 
 28. **EN:** How much did I sell today, by channel?
     **VI:** Hôm nay tôi bán được bao nhiêu, chia theo kênh?
+
+28b. **EN:** Today, how many orders, units and revenue did each warehouse make per channel?
+    **VI:** Hôm nay mỗi kho bán được bao nhiêu đơn, bao nhiêu sản phẩm và doanh thu theo từng kênh?
+    *(→ `warehouse_daily_sales_by_channel` — tổng công ty + bảng kho × kênh kèm doanh thu VND)*
+
+28c. **EN:** Today's net revenue per warehouse after returns, and which channel leads?
+    **VI:** Hôm nay doanh thu thuần mỗi kho sau trả hàng, và kênh nào dẫn đầu?
+    *(→ `warehouse_daily_sales_by_channel` — net_revenue + insights)*
 
 29. **EN:** Give me a revenue and order summary for this month.
     **VI:** Cho tôi tổng hợp doanh thu và đơn hàng trong tháng này.
@@ -143,6 +151,14 @@ it never changes data, sends messages, or places orders.
 
 33. **EN:** How is revenue trending week over week this month?
     **VI:** Doanh thu tháng này đang thay đổi thế nào theo từng tuần?
+
+33b. **EN:** Compared with the last 14 days, which warehouses spiked or dropped abnormally today?
+    **VI:** So với trung bình 14 ngày, hôm nay kho nào tăng/giảm bất thường?
+    *(→ `warehouse_sales_anomalies`)*
+
+33c. **EN:** Which sales channels collapsed today versus their two-week average?
+    **VI:** Kênh nào hôm nay sụt mạnh so với trung bình hai tuần?
+    *(→ `warehouse_sales_anomalies` với group_by=branch_channel)*
 
 ---
 

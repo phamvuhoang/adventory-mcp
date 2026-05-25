@@ -31,7 +31,9 @@ Không đoán mã chi nhánh hay plan ID. Nếu người dùng cung cấp tên c
 | `adventory_capabilities` | Xem gian hàng và các nền tảng đã kết nối — gọi đầu tiên để định hướng | không có |
 | `warehouse_branches` | Danh sách chi nhánh/kho và cấu hình — **gọi trước khi dùng reorder_suggestions hoặc production_plan** | không có |
 | `warehouse_alerts` | Cảnh báo tồn kho (hết hàng, tồn thấp, tồn cao...) | `branch?` (mã chi nhánh), `status?` (lọc theo trạng thái cảnh báo) |
-| `warehouse_daily_sales` | Doanh số theo kênh trong một ngày | `date?` (YYYY-MM-DD — mặc định hôm nay) |
+| `warehouse_daily_sales` | Doanh số theo kênh trong một ngày (chỉ số đơn + số sản phẩm) | `date?` (YYYY-MM-DD — mặc định hôm nay) |
+| `warehouse_daily_sales_by_channel` | Báo cáo ngày theo **kho × kênh** kèm **doanh thu gross/net**, trả hàng, tên kênh thật, `insights`, `source.data_freshness`/`partial` — dùng cho báo cáo CEO | `date?` (mặc định hôm nay), `branch?` (lọc một kho), `include_returns?` (mặc định true), `include_zero_sales_branches?` (mặc định false) |
+| `warehouse_sales_anomalies` | So sánh hôm nay với trung bình N ngày (mặc định 14) để tìm kho/kênh **tăng/giảm bất thường** — kèm % thay đổi, hướng, mức độ | `date?`, `lookback_days?` (3-90, mặc định 14), `metric?` (orders\|units\|gross_revenue\|net_revenue), `group_by?` (branch\|branch_channel), `branch?`, `min_baseline_orders?`, `change_threshold_pct?`, `include_zero_today?` |
 | `reorder_suggestions` | Đề xuất nhập hàng/điều chuyển cho một chi nhánh | `branch` (**bắt buộc** — mã chi nhánh từ `warehouse_branches`) |
 | `production_plan` | Kế hoạch sản xuất hiện tại cho một chi nhánh nhà máy | `branch` (**bắt buộc** — mã chi nhánh từ `warehouse_branches`) |
 | `production_materials` | Thiếu hụt nguyên liệu BOM cho một kế hoạch sản xuất | `plan` (**bắt buộc** — UUID từ `production_plan`) |
@@ -89,10 +91,21 @@ Trigger: *"Thiếu nguyên liệu gì?"*, *"BOM kế hoạch sản xuất"*, *"C
 
 Trigger: *"Hôm nay bán được bao nhiêu?"*, *"Doanh số theo kênh hôm qua?"*, *"Doanh thu tuần này?"*
 
-1. Doanh số một ngày cụ thể: gọi `warehouse_daily_sales` với `date`.
-2. Doanh thu khoảng ngày: gọi `analytics_summary` với `from`/`to`.
-3. Phân tích theo kênh: gọi `analytics_by_platform` với cùng khoảng ngày.
-4. Nêu rõ: khoảng ngày, kênh, số đơn, doanh thu, so sánh nếu người dùng hỏi.
+1. Báo cáo "hôm nay mỗi kho bán bao nhiêu đơn/sản phẩm/doanh thu theo kênh?": gọi `warehouse_daily_sales_by_channel` với `date` — trả về tổng công ty, tổng theo kho và bảng kho × kênh kèm doanh thu (VND), `returns_value`/`net_revenue`, `insights`, tên kênh thật và freshness. Đây là tool ưu tiên cho báo cáo CEO.
+2. Chỉ cần số đơn + số sản phẩm theo kênh (không cần doanh thu): `warehouse_daily_sales`.
+3. Doanh thu khoảng ngày: gọi `analytics_summary` với `from`/`to`.
+4. Phân tích theo nền tảng: gọi `analytics_by_platform` với cùng khoảng ngày.
+5. Nêu rõ: ngày/khoảng ngày, kho, kênh, số đơn, số sản phẩm, doanh thu; nếu `source.partial=true`, `source.data_freshness` cũ (>90 phút), hoặc có `source.warnings` thì nói rõ dữ liệu có thể chưa đầy đủ.
+
+### Bất Thường So Với Trung Bình 14 Ngày
+
+Trigger: *"Kho nào tăng/giảm bất thường?"*, *"So với 2 tuần trước, hôm nay kho nào lạ?"*
+
+1. Gọi `warehouse_sales_anomalies` với `date` (mặc định hôm nay). Mặc định gom theo kho, xếp hạng theo số đơn.
+2. Nếu cần chi tiết theo kênh: thêm `group_by=branch_channel`.
+3. Đọc `rows[].direction` (up/down/flat), `severity` (low_volume/normal/warning/high/critical), `is_anomaly`, `change_pct`, `reason`.
+4. Nếu `source.partial_today=true`, nói rõ hôm nay chưa hết ngày nên số liệu có thể thấp hơn thực tế (xem `source.elapsed_day_ratio`).
+5. Kho `today=0` nhưng baseline cao → cảnh báo critical, gợi ý kiểm tra đồng bộ kênh bán (Shopee/TikTok/KiotViet).
 
 ### Tra Cứu Đơn Hàng
 

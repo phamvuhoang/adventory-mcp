@@ -6,9 +6,9 @@ The server is a thin client: it forwards GET requests to the Adventory backend A
 
 ---
 
-## Tools (14, read-only)
+## Tools (16, read-only)
 
-### Ads Analytics (5 tools)
+### Ads Analytics (4 tools)
 
 | Tool | What it does |
 |---|---|
@@ -17,13 +17,15 @@ The server is a thin client: it forwards GET requests to the Adventory backend A
 | `ads_campaigns` | Campaign list and metrics for one platform (TikTok Ads / Facebook / Shopee) |
 | `ads_creatives` | Creative/ad list and metrics for one platform |
 
-### Warehouse & Inventory (6 tools)
+### Warehouse & Inventory (8 tools)
 
 | Tool | What it does |
 |---|---|
 | `warehouse_branches` | Branch and warehouse list with codes and configuration |
 | `warehouse_alerts` | Pre-computed stock alerts (out-of-stock, low-stock, overstock) |
 | `warehouse_daily_sales` | Sales by channel for a given day |
+| `warehouse_daily_sales_by_channel` | Daily warehouse x channel CEO report with real channel names, returns/net revenue, insights, and freshness metadata |
+| `warehouse_sales_anomalies` | Flags branch or branch x channel order/unit/revenue spikes and drops versus the trailing average |
 | `reorder_suggestions` | Pre-computed reorder and transfer suggestions for a branch |
 | `production_plan` | Current production plan for a factory branch |
 | `production_materials` | BOM-derived material shortfalls for a production plan |

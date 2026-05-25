@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+mcp-server/node_modules/.vite/vitest/
+.next/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Local Supabase
+supabase/.temp/
+supabase/.branches/
+
+# Misc
+*.log
+
+# Credentials / keys — never commit
+serviceAccountKey.json
+credentials.json
+*.pem
+*.key
+*.p12
+
+# Build artifacts
+dist/
+build/
+
+# Service Dockerfiles live in backend/ and worker/. deploy-cloud-run.mjs
+# stages the chosen one to the repo root at deploy time and removes it after.
+# Keep root Dockerfile visible so `gcloud run deploy --source=.` includes it.
+
+# Logs
+logs/
+
+kiotviet-retail-analytics/
