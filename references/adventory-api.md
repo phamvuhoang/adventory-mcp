@@ -17,8 +17,8 @@ Default base URL: `https://dashboard-api.clipoox.com` (override with `ADVENTORY_
 | Tool | Backend Endpoint | Parameters | Returns |
 |---|---|---|---|
 | `adventory_capabilities` | `GET /api/me` + `GET /api/connections` | none | Tenant profile and list of connected platform integrations |
-| `ads_overview` | `GET /api/ads/overview` | `from` (optional, YYYY-MM-DD), `to` (optional, YYYY-MM-DD) — defaults to last 7 days | Aggregate ad spend, revenue, ROAS, and active channel count across all connected ad platforms |
-| `ads_campaigns` | `GET /api/ads/campaigns` | `platform` (**required**, enum: `tiktok_ads` \| `facebook` \| `shopee`), `from` (optional), `to` (optional) — date defaults to last 7 days | Campaign list with performance metrics for the specified platform |
+| `ads_overview` | `GET /api/ads/overview` | `from` (optional, YYYY-MM-DD), `to` (optional, YYYY-MM-DD) — defaults to last 7 days | Aggregate ad spend, revenue, ROAS, and active channel count, plus per-channel metrics such as impressions, clicks, CTR, CPC, CPM, CPA, and Facebook reach when available |
+| `ads_campaigns` | `GET /api/ads/campaigns` | `platform` (**required**, enum: `tiktok_ads` \| `facebook` \| `shopee`), `from` (optional), `to` (optional) — date defaults to last 7 days | Campaign list with performance metrics such as spend, revenue, ROAS, impressions, clicks, conversions, CTR, CPC, CPM, CPA, and reach for Facebook |
 | `ads_creatives` | `GET /api/ads/creatives` | `platform` (**required**, enum: `tiktok_ads` \| `facebook` \| `shopee`), `from` (optional), `to` (optional) — date defaults to last 7 days | Creative/ad list with performance metrics for the specified platform |
 | `ads_insights` | `GET /api/ads/insights` | `from` (optional, YYYY-MM-DD), `to` (optional, YYYY-MM-DD) — defaults to last 7 days | Rule-based findings: losing-money campaigns, zero-conversion campaigns, scaling wins, creative fatigue signals |
 | `warehouse_branches` | `GET /api/warehouse/branches` | none | Branch/warehouse list with codes, names, and per-branch configuration |
