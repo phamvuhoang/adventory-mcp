@@ -11,6 +11,8 @@ htmlcov/
 # Node
 node_modules/
 mcp-server/node_modules/.vite/vitest/
+mcp-server/dist/
+*.tsbuildinfo
 .next/
 
 # Env
@@ -50,4 +52,3 @@ build/
 # Logs
 logs/
 
-kiotviet-retail-analytics/
