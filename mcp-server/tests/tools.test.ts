@@ -30,6 +30,7 @@ describe("tools", () => {
     expect(names).toContain("warehouse_transfers");
     expect(names).toContain("warehouse_sku_trends");
     expect(names).toContain("adventory_capabilities");
+    expect(names).toContain("warehouse_dual_alerts");
     expect(names.some((n) => /dispatch|approve|truck|create|update|delete/.test(n))).toBe(false);
   });
 

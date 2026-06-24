@@ -2,6 +2,7 @@ import type { AdventoryClient } from "./client.js";
 import { defaultRange, today, yesterday } from "./dates.js";
 import { AdventoryError } from "./errors.js";
 import type { Query, ToolDefinition } from "./types.js";
+import { createDualAlertsTool } from "./dual-alerts.js";
 
 const AD_PLATFORMS = ["tiktok_ads", "facebook", "shopee"] as const;
 
@@ -512,6 +513,7 @@ export function createTools(client: AdventoryClient): ToolDefinition[] {
           page: args.page ?? 1, page_size: args.page_size ?? 50
         });
       }
-    }
+    },
+    createDualAlertsTool(client),
   ];
 }
